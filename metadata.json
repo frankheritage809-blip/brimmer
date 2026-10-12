@@ -1,0 +1,6 @@
+{
+  "name": "The Grand Azure Hotel & Suites",
+  "description": "Luxury 5-star hospitality brand featuring real-time room availability, elegant suites, dining reservations, and seamless guest bookings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
