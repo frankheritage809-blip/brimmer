@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Rooms collection is publicly readable so guests can view catalog
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Reservations can be read by anyone looking up their reference or authenticated guest
+    match /reservations/{reservationId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if request.auth != null;
+    }
+
+    // User accounts
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Dining reservations
+    match /diningReservations/{id} {
+      allow read, write: if true;
+    }
+
+    // Airport transfers
+    match /transferRequests/{id} {
+      allow read, write: if true;
+    }
+
+    // Connection testing
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

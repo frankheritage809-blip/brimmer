@@ -1,5 +1,30 @@
 import { Room, Reservation, User, Promotion, DiningReservation, AirportTransferRequest, AdminMetrics } from '../types/hotel.js';
 import { INITIAL_ROOMS, INITIAL_PROMOTIONS } from './data/seedData.js';
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, collection, doc, setDoc, getDocs, updateDoc } from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json' with { type: 'json' };
+
+// Initialize Firebase App & Firestore
+let firestoreDb: any = null;
+try {
+  const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
+  firestoreDb = firebaseConfig.firestoreDatabaseId
+    ? getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(firebaseApp);
+  console.log('[Firestore] Database client initialized successfully for project:', firebaseConfig.projectId);
+} catch (err) {
+  console.warn('[Firestore] Initialization notice:', err);
+}
+
+function cleanForFirestore<T extends Record<string, any>>(obj: T): T {
+  const result: any = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      result[key] = val;
+    }
+  }
+  return result;
+}
 
 class HotelDatabase {
   private rooms: Room[] = [...INITIAL_ROOMS];
@@ -28,10 +53,50 @@ class HotelDatabase {
 
   constructor() {
     this.seedInitialReservations();
+    this.initFirestoreSync();
+  }
+
+  private async initFirestoreSync() {
+    if (!firestoreDb) return;
+    try {
+      // 1. Fetch remote rooms or push seeds
+      const roomsSnapshot = await getDocs(collection(firestoreDb, 'rooms'));
+      if (roomsSnapshot.empty) {
+        // Seed Firestore with initial rooms
+        for (const room of this.rooms) {
+          await setDoc(doc(firestoreDb, 'rooms', room.id), room);
+        }
+        console.log('[Firestore] Seeded initial rooms to Firestore');
+      } else {
+        const remoteRooms: Room[] = [];
+        roomsSnapshot.forEach((d) => remoteRooms.push(d.data() as Room));
+        if (remoteRooms.length > 0) {
+          this.rooms = remoteRooms;
+          console.log(`[Firestore] Loaded ${remoteRooms.length} rooms from Firestore`);
+        }
+      }
+
+      // 2. Fetch existing reservations from Firestore
+      const resSnapshot = await getDocs(collection(firestoreDb, 'reservations'));
+      if (resSnapshot.empty) {
+        for (const res of this.reservations) {
+          await setDoc(doc(firestoreDb, 'reservations', res.reference), res);
+        }
+        console.log('[Firestore] Seeded initial reservations to Firestore');
+      } else {
+        const remoteRes: Reservation[] = [];
+        resSnapshot.forEach((d) => remoteRes.push(d.data() as Reservation));
+        if (remoteRes.length > 0) {
+          this.reservations = remoteRes;
+          console.log(`[Firestore] Loaded ${remoteRes.length} reservations from Firestore`);
+        }
+      }
+    } catch (err) {
+      console.warn('[Firestore] Sync notice (using cached data):', err);
+    }
   }
 
   private seedInitialReservations() {
-    // Seed sample confirmed reservations to demonstrate calendar blocking and stats
     const today = new Date();
     const in3Days = new Date(today);
     in3Days.setDate(today.getDate() + 3);
@@ -94,7 +159,7 @@ class HotelDatabase {
       subtotal: 1740,
       taxAmount: 174,
       serviceFee: 87,
-      discountAmount: 261, // 15% discount
+      discountAmount: 261,
       promoCode: 'AZURE2026',
       totalAmount: 1740,
       paymentMethod: 'paystack',
@@ -118,6 +183,14 @@ class HotelDatabase {
     const id = `room-${Date.now()}`;
     const newRoom: Room = { ...roomData, id };
     this.rooms.push(newRoom);
+
+    // Persist to Firestore asynchronously
+    if (firestoreDb) {
+      setDoc(doc(firestoreDb, 'rooms', id), newRoom).catch((e: any) =>
+        console.warn('Failed to save room to Firestore:', e)
+      );
+    }
+
     return newRoom;
   }
 
@@ -125,6 +198,13 @@ class HotelDatabase {
     const idx = this.rooms.findIndex(r => r.id === id);
     if (idx === -1) return null;
     this.rooms[idx] = { ...this.rooms[idx], ...updates };
+
+    if (firestoreDb) {
+      updateDoc(doc(firestoreDb, 'rooms', id), updates).catch((e: any) =>
+        console.warn('Failed to update room in Firestore:', e)
+      );
+    }
+
     return this.rooms[idx];
   }
 
@@ -252,7 +332,6 @@ class HotelDatabase {
   }
 
   public createReservation(data: Omit<Reservation, 'id' | 'reference' | 'createdAt'>): Reservation {
-    // Generate unique reference AZR-2026-XXXX
     const randomDigits = Math.floor(1000 + Math.random() * 9000);
     const reference = `AZR-2026-${randomDigits}`;
     const id = `res-${Date.now()}-${randomDigits}`;
@@ -265,6 +344,14 @@ class HotelDatabase {
     };
 
     this.reservations.unshift(newReservation);
+
+    // Save to Firestore asynchronously
+    if (firestoreDb) {
+      setDoc(doc(firestoreDb, 'reservations', reference), cleanForFirestore(newReservation)).catch((e: any) =>
+        console.warn('Failed to save reservation to Firestore:', e)
+      );
+    }
+
     return newReservation;
   }
 
@@ -279,9 +366,17 @@ class HotelDatabase {
     res.status = status;
     if (reason) res.cancellationReason = reason;
     if (status === 'cancelled' && res.paymentStatus === 'paid') {
-      // In high-end hospitality, cancellation policy notes refund
       res.paymentStatus = 'refunded';
     }
+
+    if (firestoreDb) {
+      updateDoc(doc(firestoreDb, 'reservations', reference), {
+        status,
+        cancellationReason: reason || null,
+        paymentStatus: res.paymentStatus
+      }).catch((e: any) => console.warn('Failed to update reservation in Firestore:', e));
+    }
+
     return res;
   }
 
@@ -289,6 +384,13 @@ class HotelDatabase {
     const res = this.getReservationByReference(reference);
     if (!res) return null;
     res.specialRequests = specialRequests;
+
+    if (firestoreDb) {
+      updateDoc(doc(firestoreDb, 'reservations', reference), {
+        specialRequests
+      }).catch((e: any) => console.warn('Failed to update notes in Firestore:', e));
+    }
+
     return res;
   }
 
@@ -307,6 +409,13 @@ class HotelDatabase {
       createdAt: new Date().toISOString()
     };
     this.users.push(newUser);
+
+    if (firestoreDb) {
+      setDoc(doc(firestoreDb, 'users', newUser.id), cleanForFirestore(newUser)).catch((e: any) =>
+        console.warn('Failed to save user to Firestore:', e)
+      );
+    }
+
     return newUser;
   }
 
@@ -328,6 +437,13 @@ class HotelDatabase {
       createdAt: new Date().toISOString()
     };
     this.diningReservations.push(item);
+
+    if (firestoreDb) {
+      setDoc(doc(firestoreDb, 'diningReservations', item.id), cleanForFirestore(item)).catch((e: any) =>
+        console.warn('Failed to save dining reservation to Firestore:', e)
+      );
+    }
+
     return item;
   }
 
@@ -342,6 +458,13 @@ class HotelDatabase {
       createdAt: new Date().toISOString()
     };
     this.transferRequests.push(item);
+
+    if (firestoreDb) {
+      setDoc(doc(firestoreDb, 'transferRequests', item.id), cleanForFirestore(item)).catch((e: any) =>
+        console.warn('Failed to save transfer request to Firestore:', e)
+      );
+    }
+
     return item;
   }
 

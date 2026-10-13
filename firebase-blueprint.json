@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "Room": {
+      "title": "Room",
+      "description": "Hotel luxury room or penthouse suite details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "shortDescription": { "type": "string" },
+        "pricePerNight": { "type": "number" },
+        "capacityAdults": { "type": "number" },
+        "capacityChildren": { "type": "number" },
+        "sizeSqm": { "type": "number" },
+        "bedType": { "type": "string" },
+        "view": { "type": "string" },
+        "floor": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" },
+        "isAvailable": { "type": "boolean" },
+        "amenities": { "type": "array" },
+        "images": { "type": "array" },
+        "featured": { "type": "boolean" },
+        "totalUnits": { "type": "number" }
+      },
+      "required": ["id", "title", "pricePerNight", "category"]
+    },
+    "Reservation": {
+      "title": "Reservation",
+      "description": "Guest suite booking record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string" },
+        "roomId": { "type": "string" },
+        "roomTitle": { "type": "string" },
+        "roomCategory": { "type": "string" },
+        "roomImage": { "type": "string" },
+        "checkIn": { "type": "string" },
+        "checkOut": { "type": "string" },
+        "nights": { "type": "number" },
+        "guestsAdults": { "type": "number" },
+        "guestsChildren": { "type": "number" },
+        "roomsCount": { "type": "number" },
+        "guestName": { "type": "string" },
+        "guestEmail": { "type": "string" },
+        "guestPhone": { "type": "string" },
+        "guestCountry": { "type": "string" },
+        "specialRequests": { "type": "string" },
+        "nightlyRate": { "type": "number" },
+        "subtotal": { "type": "number" },
+        "taxAmount": { "type": "number" },
+        "serviceFee": { "type": "number" },
+        "discountAmount": { "type": "number" },
+        "promoCode": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "paymentTransactionId": { "type": "string" },
+        "status": { "type": "string" },
+        "cancellationReason": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["reference", "roomId", "checkIn", "checkOut", "guestName", "guestEmail", "totalAmount", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Guest or staff user profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "DiningReservation": {
+      "title": "DiningReservation",
+      "description": "Table reservation at hotel fine dining restaurant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "guestName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "guests": { "type": "number" },
+        "seatingPreference": { "type": "string" },
+        "specialNotes": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["guestName", "email", "date", "time", "guests"]
+    },
+    "AirportTransferRequest": {
+      "title": "AirportTransferRequest",
+      "description": "VIP airport limousine and flight transfer booking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "guestName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "flightNumber": { "type": "string" },
+        "arrivalDate": { "type": "string" },
+        "arrivalTime": { "type": "string" },
+        "vehicleType": { "type": "string" },
+        "passengers": { "type": "number" },
+        "luggageCount": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["guestName", "email", "flightNumber", "arrivalDate", "vehicleType"]
+    }
+  },
+  "firestore": {
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Collection of hotel room categories and availability"
+    },
+    "/reservations/{reservationId}": {
+      "schema": "Reservation",
+      "description": "Collection of guest reservations"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Registered guest and staff profiles"
+    },
+    "/diningReservations/{diningId}": {
+      "schema": "DiningReservation",
+      "description": "Table reservations at restaurant venues"
+    },
+    "/transferRequests/{transferId}": {
+      "schema": "AirportTransferRequest",
+      "description": "Airport transfer requests"
+    }
+  }
+}
